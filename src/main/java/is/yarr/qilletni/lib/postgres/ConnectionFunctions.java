@@ -4,23 +4,21 @@ import is.yarr.qilletni.api.lang.internal.FunctionInvoker;
 import is.yarr.qilletni.api.lang.types.EntityType;
 import is.yarr.qilletni.api.lang.types.FunctionType;
 import is.yarr.qilletni.api.lang.types.JavaType;
-import is.yarr.qilletni.api.lang.types.ListType;
 import is.yarr.qilletni.api.lang.types.QilletniType;
 import is.yarr.qilletni.api.lang.types.StaticEntityType;
 import is.yarr.qilletni.api.lang.types.conversion.TypeConverter;
 import is.yarr.qilletni.api.lang.types.entity.EntityDefinitionManager;
 import is.yarr.qilletni.api.lang.types.entity.EntityInitializer;
 import is.yarr.qilletni.api.lang.types.list.ListInitializer;
+import is.yarr.qilletni.api.lang.types.typeclass.QilletniTypeClass;
 import is.yarr.qilletni.api.lib.annotations.BeforeAnyInvocation;
 import is.yarr.qilletni.api.lib.annotations.NativeOn;
 import is.yarr.qilletni.lib.postgres.exceptions.DatabaseException;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @NativeOn("Connection")
 public class ConnectionFunctions {
@@ -67,8 +65,17 @@ public class ConnectionFunctions {
 
         var statement = connection.createStatement();
         var resultSet = statement.executeQuery(queryString);
-        // TODO: make ResultSet
-        return null;
+
+        var metaData = resultSet.getMetaData();
+        var columnNames = new ArrayList<String>();
+        var columnLabels = new ArrayList<String>();
+        for (int i = 1; i <= metaData.getColumnCount(); i++) {
+            columnNames.add(metaData.getColumnName(i));
+            columnLabels.add(metaData.getColumnLabel(i));
+        }
+
+        var resultMetadata = entityInitializer.initializeEntity("ResultMetadata", listInitializer.createListFromJava(columnNames, QilletniTypeClass.STRING), listInitializer.createListFromJava(columnLabels, QilletniTypeClass.STRING));
+        return createResult(entityInitializer.initializeEntity("ResultSet", resultMetadata, resultSet));
     }
 
     public EntityType fetchOne(EntityType entityType, String queryString) {
@@ -81,13 +88,10 @@ public class ConnectionFunctions {
             try (var rs = statement.executeQuery(queryString)) {
                 // Process the first row
                 if (rs.next()) {
-//                var row = new HashMap<>();
                     var row = new ArrayList<>();
                     int columnCount = rs.getMetaData().getColumnCount();
 
-                    // Retrieve column values by name
                     for (int i = 1; i <= columnCount; i++) {
-//                    String columnName = rs.getMetaData().getColumnName(i);
                         row.add(rs.getObject(i));
                     }
 
@@ -156,19 +160,6 @@ public class ConnectionFunctions {
             return createResult(ErrorType.DISCONNECTED, e.getMessage());
         }
     }
-//
-//    public EntityType delete(EntityType entityType, String queryString) {
-//        try {
-//            verifyConnection();
-//
-//            var statement = connection.createStatement();
-//            return createResult(typeConverter.convertToQilletniType(statement.executeUpdate(queryString)));
-//        } catch (SQLException e) {
-//            return createResult(ErrorType.SQL_EXCEPTION, e.getMessage());
-//        } catch (DatabaseException e) {
-//            return createResult(ErrorType.DISCONNECTED, e.getMessage());
-//        }
-//    }
 
     public boolean beginTransaction(EntityType entityType) {
         try {

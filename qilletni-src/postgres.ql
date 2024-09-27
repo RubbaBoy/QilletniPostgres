@@ -128,10 +128,45 @@ entity Connection {
     native fun disconnect()
 }
 
-// TODO: Result set
-//entity ResultSet {
-//    
-//}
+/**
+ * Metadata for the result of a query.
+ */
+entity ResultMetadata {
+
+    string[] columnNames
+    string[] columnLabels
+    
+    ResultMetadata(columnNames, columnLabels)
+}
+
+entity ResultSet {
+    
+    ResultMetadata metadata
+    
+    /**
+     * The internal result set.
+     *
+     * [@type @java java.sql.ResultSet]
+     */
+    java _resultSet
+    
+    ResultSet(metadata, _resultSet)
+    
+    /**
+     * Checks if there are more rows to fetch, and moves the ResultSet to the next row.
+     *
+     * @returns[@type boolean] If there are more rows to fetch
+     */
+    native fun hasNext()
+    
+    /**
+     * Gets the value from the current row by either the column name or index.
+     *
+     * @param column The column name or 0-indexed index to get the value from
+     * @returns The value of the column
+     */
+    native fun getValue(column)
+}
 
 /**
  * The result of a database operation that retrieves data.
