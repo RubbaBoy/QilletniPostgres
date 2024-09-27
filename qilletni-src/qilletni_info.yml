@@ -1,0 +1,6 @@
+name: postgres
+version: 1.0.0
+author: Adam Yarris
+native_classes:
+  - is.yarr.qilletni.lib.postgres.ConnectionFunctions
+  - is.yarr.qilletni.lib.postgres.DatabaseFunctions
