@@ -50,6 +50,36 @@ entity Database {
     native fun createConnection()
 }
 
+/**
+ * An entity for holding a single prepared statement.
+ */
+entity PreparedStatement {
+
+    /**
+    * The internal prepared statement.
+    * [@type @java java.sql.PreparedStatement]
+    */
+    java _preparedStatement
+    
+    PreparedStatement(_preparedStatement)
+    
+    /**
+    * Set a parameter in the prepared statement.
+    *
+    * @param[@type int] index The 1-indexed index of the parameter to set
+    * @param value The value to set the parameter to
+    * @returns[@type boolean] If the parameter was set successfully
+    */
+    native fun setParam(index, value)
+    
+    /**
+    * Close the prepared statement.
+    *
+    * @returns[@type boolean] If the prepared statement was closed successfully
+    */
+    native fun close()
+}
+
 entity Connection {
 
     /**
@@ -66,51 +96,68 @@ entity Connection {
      * @returns[@type boolean] If the connection is connected
      */
     native fun isConnected()
+    
+    /**
+     * Prepare a statement for execution without any parameters given yet.
+     *
+     * @param[@type string] statementString The statement to prepare
+     * @returns[@type postgres.PreparedStatement] The prepared statement
+     */
+    native fun prepareStatement(statementString)
+    
+    /**
+     * Prepare a statement for execution with pre populated parameters.
+     *
+     * @param[@type string] statementString The statement to prepare
+     * @param[@type list] paramList The list of parameters to prepare
+     * @returns[@type postgres.PreparedStatement] The prepared statement
+     */
+    native fun prepareStatement(statementString, paramList)
 
     /**
      * Query the database.
      *
-     * @param[@type string] queryString The query string to execute
+     * @param query The query string to execute. Either a [@type string] or a [@type postgres.PreparedStatement]
      * @returns[@type postgres.Result] The result of the query, containing a ResultSet
      */
-    native fun query(queryString)
+    native fun query(query)
     
     /**
      * Fetch one row from the database.
      *
-     * @param[@type string] queryString The query string to execute
+     * @param[@type string] query The query string to execute. Either a [@type string] or a [@type postgres.PreparedStatement]
      * @returns[@type postgres.Result] The result of the query, containing a list of the resulting row
      */
-    native fun fetchOne(queryString)
+    native fun fetchOne(query)
     
     /**
      * Fetch all rows from the database.
      *
-     * @param[@type string] queryString The query string to execute
+     * @param query The query string to execute. Either a [@type string] or a [@type postgres.PreparedStatement]
      * @returns[@type postgres.Result] The result of the query, containing a 2D list of the resulting rows
      */
-    native fun fetchAll(queryString)
+    native fun fetchAll(query)
     
     /**
      * Update entries in the database.
      *
-     * @param[@type string] queryString The query string to execute
+     * @param query The query string to execute. Either a [@type string] or a [@type postgres.PreparedStatement]
      * @returns[@type postgres.Result] How many rows were updated
      */
-    native fun update(queryString)
+    native fun update(query)
     
     /**
      * Executes a query that does not return any data.
      *
-     * @param[@type string] queryString The query string to execute
+     * @param query The query string to execute. Either a [@type string] or a [@type postgres.PreparedStatement]
      * @returns[@type boolean] `true` if the query returned any ResultSets, `false` otherwise
      */
-    native fun execute(queryString)
+    native fun execute(query)
     
     /**
      * Begins a transaction for executing multiple queries.
      */
-    native fun beginTransaction(queryString)
+    native fun beginTransaction()
     
     /**
      * Commits a transaction.
@@ -150,7 +197,16 @@ entity ResultSet {
      */
     java _resultSet
     
-    ResultSet(metadata, _resultSet)
+    /**
+     * The statement that created the ResultSet, for closing purposes.
+     * This is an Optional that holds a [@type @java java.sql.Statement]. This may not need to be an Optional, and
+     * should probably be changed in the future.
+     *
+     * [@type @java java.util.Optional]
+     */
+    java _statement
+    
+    ResultSet(metadata, _resultSet, _statement)
     
     /**
      * Checks if there are more rows to fetch, and moves the ResultSet to the next row.
@@ -166,6 +222,13 @@ entity ResultSet {
      * @returns The value of the column
      */
     native fun getValue(column)
+    
+    /**
+     * Closes the ResultSet, freeing it from memory.
+     *
+     * NOTE: This also closes the resulting statement, if it is not a [@type PreparedStatement]
+     */
+    native fun close()
 }
 
 /**

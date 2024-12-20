@@ -5,3 +5,4 @@ native_classes:
   - is.yarr.qilletni.lib.postgres.ConnectionFunctions
   - is.yarr.qilletni.lib.postgres.DatabaseFunctions
   - is.yarr.qilletni.lib.postgres.ResultSetFunctions
+  - is.yarr.qilletni.lib.postgres.PreparedStatementFunctions

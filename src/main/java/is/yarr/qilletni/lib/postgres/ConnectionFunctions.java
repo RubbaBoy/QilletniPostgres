@@ -1,11 +1,13 @@
 package is.yarr.qilletni.lib.postgres;
 
 import is.yarr.qilletni.api.lang.internal.FunctionInvoker;
+import is.yarr.qilletni.api.lang.types.AnyType;
 import is.yarr.qilletni.api.lang.types.EntityType;
 import is.yarr.qilletni.api.lang.types.FunctionType;
 import is.yarr.qilletni.api.lang.types.JavaType;
 import is.yarr.qilletni.api.lang.types.QilletniType;
 import is.yarr.qilletni.api.lang.types.StaticEntityType;
+import is.yarr.qilletni.api.lang.types.StringType;
 import is.yarr.qilletni.api.lang.types.conversion.TypeConverter;
 import is.yarr.qilletni.api.lang.types.entity.EntityDefinitionManager;
 import is.yarr.qilletni.api.lang.types.entity.EntityInitializer;
@@ -14,11 +16,16 @@ import is.yarr.qilletni.api.lang.types.typeclass.QilletniTypeClass;
 import is.yarr.qilletni.api.lib.annotations.BeforeAnyInvocation;
 import is.yarr.qilletni.api.lib.annotations.NativeOn;
 import is.yarr.qilletni.lib.postgres.exceptions.DatabaseException;
+import is.yarr.qilletni.lib.postgres.exceptions.InvalidPreparedStatementType;
+import is.yarr.qilletni.lib.postgres.exceptions.InvalidStatementTypeException;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @NativeOn("Connection")
 public class ConnectionFunctions {
@@ -59,40 +66,162 @@ public class ConnectionFunctions {
             return false;
         }
     }
-
-    public EntityType query(EntityType entityType, String queryString) throws SQLException {
-        verifyConnection();
-
-        var statement = connection.createStatement();
-        var resultSet = statement.executeQuery(queryString);
-
-        var metaData = resultSet.getMetaData();
-        var columnNames = new ArrayList<String>();
-        var columnLabels = new ArrayList<String>();
-        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-            columnNames.add(metaData.getColumnName(i));
-            columnLabels.add(metaData.getColumnLabel(i));
-        }
-
-        var resultMetadata = entityInitializer.initializeEntity("ResultMetadata", listInitializer.createListFromJava(columnNames, QilletniTypeClass.STRING), listInitializer.createListFromJava(columnLabels, QilletniTypeClass.STRING));
-        return createResult(entityInitializer.initializeEntity("ResultSet", resultMetadata, resultSet));
+    
+    public EntityType prepareStatement(EntityType entityType, String statementString) {
+        return prepareStatement(entityType, statementString, Collections.emptyList());
     }
 
-    public EntityType fetchOne(EntityType entityType, String queryString) {
+    /**
+     * Executes a query() from a {@link QilletniType}, which may either be a {@link StringType} or an
+     * {@link EntityType} of PreparedStatement.
+     * 
+     * @param query The query, either a string or PreparedStatement
+     * @return The result of the query
+     */
+    private QueryResult queryStatement(QilletniType query) throws SQLException {
+        return queryStatement(query, -1);
+    }
+
+    /**
+     * Executes a query() from a {@link QilletniType}, which may either be a {@link StringType} or an
+     * {@link EntityType} of PreparedStatement.
+     * 
+     * @param query The query, either a string or PreparedStatement
+     * @return The result of the query
+     */
+    private QueryResult queryStatement(QilletniType query, int fetchSize) throws SQLException {
+        if (query instanceof StringType queryString) {
+            var statement = connection.createStatement();
+            if (fetchSize > 0) {
+                statement.setFetchSize(fetchSize);
+            }
+
+            var resultSet = statement.executeQuery(queryString.getValue());
+            return new QueryResult(resultSet, statement);
+        } else if (query instanceof EntityType preparedStatementEntity) {
+            var preparedStatement = preparedStatementEntity.getEntityScope().<JavaType>lookup("_preparedStatement").getValue().getReference(PreparedStatement.class);
+            
+            // Old fetch size might not be relevant now, but may save headache later
+            int oldFetchSize = -1;
+            if (fetchSize > 0) {
+                oldFetchSize = preparedStatement.getFetchSize();
+                preparedStatement.setFetchSize(fetchSize);
+            }
+            
+            var resultSet = preparedStatement.executeQuery();
+            
+            if (fetchSize > 0) {
+                preparedStatement.setFetchSize(oldFetchSize);
+            }
+            
+            return new QueryResult(resultSet);
+        }
+        
+        throw new InvalidStatementTypeException("Expected a string or a PreparedStatement, got %s".formatted(query.getTypeClass().getTypeName()));
+    }
+
+    /**
+     * Executes an update() from a {@link QilletniType}, which may either be a {@link StringType} or an
+     * {@link EntityType} of PreparedStatement.
+     * 
+     * @param query The query, either a string or PreparedStatement
+     * @return The number of rows affected
+     */
+    private int updateStatement(QilletniType query) throws SQLException {
+        if (query instanceof StringType queryString) {
+            try (var statement = connection.createStatement()) {
+                return statement.executeUpdate(queryString.getValue());
+            }
+        } else if (query instanceof EntityType preparedStatementEntity) {
+            var preparedStatement = preparedStatementEntity.getEntityScope().<JavaType>lookup("_preparedStatement").getValue().getReference(PreparedStatement.class);
+            return preparedStatement.executeUpdate();
+        }
+        
+        throw new InvalidStatementTypeException("Expected a string or a PreparedStatement, got %s".formatted(query.getTypeClass().getTypeName()));
+    }
+
+    /**
+     * Executes an execute() from a {@link QilletniType}, which may either be a {@link StringType} or an
+     * {@link EntityType} of PreparedStatement.
+     * 
+     * @param query The query, either a string or PreparedStatement
+     * @return If the execution returned a ResultSet
+     */
+    private boolean executeStatement(QilletniType query) throws SQLException {
+        if (query instanceof StringType queryString) {
+            try (var statement = connection.createStatement()) {
+                return statement.execute(queryString.getValue());
+            }
+        } else if (query instanceof EntityType preparedStatementEntity) {
+            var preparedStatement = preparedStatementEntity.getEntityScope().<JavaType>lookup("_preparedStatement").getValue().getReference(PreparedStatement.class);
+            return preparedStatement.execute();
+        }
+        
+        throw new InvalidStatementTypeException("Expected a string or a PreparedStatement, got %s".formatted(query.getTypeClass().getTypeName()));
+    }
+    
+    public EntityType prepareStatement(EntityType entityType, String statementString, List<QilletniType> paramList) {
+        try {
+            verifyConnection();
+            
+            List<Object> paramObjects = paramList.stream().map(qilletniType -> {
+                if (!(qilletniType instanceof AnyType anyType)) {
+                    throw new InvalidPreparedStatementType("Invalid type for PreparedStatement: %s".formatted(qilletniType.getTypeClass().getTypeName()));
+                }
+
+                return DatabaseTypeUtility.fromQilletniToNativeJava(anyType);
+            }).toList();
+
+            var statement = connection.prepareStatement(statementString);
+            for (int i = 0; i < paramObjects.size(); i++) {
+                statement.setObject(i + 1, paramObjects.get(i));
+            }
+
+            return entityInitializer.initializeEntity("PreparedStatement", statement);
+        } catch (SQLException e) {
+            return createResult(ErrorType.SQL_EXCEPTION, e.getMessage());
+        } catch (DatabaseException e) {
+            return createResult(ErrorType.DISCONNECTED, e.getMessage());
+        }
+    }
+
+    public EntityType query(EntityType entityType, QilletniType query) {
+        try {
+            verifyConnection();
+    
+            var queryResult = queryStatement(query);
+            var resultSet = queryResult.resultSet();
+            var metaData = resultSet.getMetaData();
+            var columnNames = new ArrayList<String>();
+            var columnLabels = new ArrayList<String>();
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                columnNames.add(metaData.getColumnName(i));
+                columnLabels.add(metaData.getColumnLabel(i));
+            }
+
+            var resultMetadata = entityInitializer.initializeEntity("ResultMetadata", listInitializer.createListFromJava(columnNames, QilletniTypeClass.STRING), listInitializer.createListFromJava(columnLabels, QilletniTypeClass.STRING));
+            return createResult(entityInitializer.initializeEntity("ResultSet", resultMetadata, resultSet, Optional.ofNullable(queryResult.statement())));
+        } catch (SQLException e) {
+            return createResult(ErrorType.SQL_EXCEPTION, e.getMessage());
+        } catch (DatabaseException e) {
+            return createResult(ErrorType.DISCONNECTED, e.getMessage());
+        }
+    }
+
+    public EntityType fetchOne(EntityType entityType, QilletniType query) {
         try {
             verifyConnection();
 
-            var statement = connection.createStatement();
-            statement.setFetchSize(1);
-
-            try (var rs = statement.executeQuery(queryString)) {
+            try (var queryResult = queryStatement(query, 1)) {
+                var resultSet = queryResult.resultSet();
+                
                 // Process the first row
-                if (rs.next()) {
+                if (resultSet.next()) {
                     var row = new ArrayList<>();
-                    int columnCount = rs.getMetaData().getColumnCount();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
 
                     for (int i = 1; i <= columnCount; i++) {
-                        row.add(rs.getObject(i));
+                        row.add(resultSet.getObject(i));
                     }
 
                     return createResult(listInitializer.createListFromJava(row));
@@ -107,20 +236,19 @@ public class ConnectionFunctions {
         }
     }
 
-    public EntityType fetchAll(EntityType entityType, String queryString) {
+    public EntityType fetchAll(EntityType entityType, QilletniType query) {
         try {
-            var statement = connection.createStatement();
-            statement.setFetchSize(1);
-
             var allRows = new ArrayList<QilletniType>();
 
-            try (var rs = statement.executeQuery(queryString)) {
-                while (rs.next()) {
+            try (var queryResult = queryStatement(query)) {
+                var resultSet = queryResult.resultSet();
+
+                while (resultSet.next()) {
                     var row = new ArrayList<>();
-                    int columnCount = rs.getMetaData().getColumnCount();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
 
                     for (int i = 1; i <= columnCount; i++) {
-                        row.add(rs.getObject(i));
+                        row.add(resultSet.getObject(i));
                     }
 
                     allRows.add(listInitializer.createListFromJava(row));
@@ -135,12 +263,11 @@ public class ConnectionFunctions {
         }
     }
 
-    public EntityType update(EntityType entityType, String queryString) {
+    public EntityType update(EntityType entityType, QilletniType query) {
         try {
             verifyConnection();
 
-            var statement = connection.createStatement();
-            return createResult(typeConverter.convertToQilletniType(statement.executeUpdate(queryString)));
+            return createResult(typeConverter.convertToQilletniType(updateStatement(query)));
         } catch (SQLException e) {
             return createResult(ErrorType.SQL_EXCEPTION, e.getMessage());
         } catch (DatabaseException e) {
@@ -148,12 +275,12 @@ public class ConnectionFunctions {
         }
     }
 
-    public EntityType execute(EntityType entityType, String queryString) {
+    public EntityType execute(EntityType entityType, QilletniType query) {
         try {
             verifyConnection();
 
-            var statement = connection.createStatement();
-            return createResult(typeConverter.convertToQilletniType(statement.execute(queryString)));
+            // TODO: Handle the actual output of execute! I'm lazy and it likely wouldn't need to be used for a while so oops
+            return createResult(typeConverter.convertToQilletniType(executeStatement(query)));
         } catch (SQLException e) {
             return createResult(ErrorType.SQL_EXCEPTION, e.getMessage());
         } catch (DatabaseException e) {

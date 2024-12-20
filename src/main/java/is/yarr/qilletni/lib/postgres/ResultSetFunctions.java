@@ -11,15 +11,19 @@ import is.yarr.qilletni.lib.postgres.exceptions.DatabaseException;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Optional;
 
 @NativeOn("ResultSet")
 public class ResultSetFunctions {
     
     private ResultSet resultSet;
+    private Statement statement;
     
     @BeforeAnyInvocation
     public void setupResultSet(EntityType entityType) {
         this.resultSet = entityType.getEntityScope().<JavaType>lookup("_resultSet").getValue().getReference(ResultSet.class);
+        this.statement = (Statement) entityType.getEntityScope().<JavaType>lookup("_statement").getValue().getReference(Optional.class).orElse(null);
     }
     
     public boolean hasNext(EntityType entityType) {
@@ -39,6 +43,18 @@ public class ResultSetFunctions {
             }
 
             return null;
+        } catch (SQLException e) {
+            throw new DatabaseException(e);
+        }
+    }
+    
+    public void close(EntityType entityType) {
+        try {
+            resultSet.close();
+            
+            if (statement != null) {
+                statement.close();
+            }
         } catch (SQLException e) {
             throw new DatabaseException(e);
         }
