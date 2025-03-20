@@ -226,7 +226,7 @@ entity ResultSet {
     /**
      * Closes the ResultSet, freeing it from memory.
      *
-     * NOTE: This also closes the resulting statement, if it is not a [@type PreparedStatement]
+     * NOTE: This also closes the resulting statement, if it is not a [@type postgres.PreparedStatement]
      */
     native fun close()
 }
