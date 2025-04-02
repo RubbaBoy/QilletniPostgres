@@ -1,13 +1,13 @@
-package is.yarr.qilletni.lib.postgres;
+package dev.qilletni.lib.postgres;
 
-import is.yarr.qilletni.api.lang.types.EntityType;
-import is.yarr.qilletni.api.lang.types.IntType;
-import is.yarr.qilletni.api.lang.types.JavaType;
-import is.yarr.qilletni.api.lang.types.QilletniType;
-import is.yarr.qilletni.api.lang.types.StringType;
-import is.yarr.qilletni.api.lib.annotations.BeforeAnyInvocation;
-import is.yarr.qilletni.api.lib.annotations.NativeOn;
-import is.yarr.qilletni.lib.postgres.exceptions.DatabaseException;
+import dev.qilletni.api.lang.types.EntityType;
+import dev.qilletni.api.lang.types.IntType;
+import dev.qilletni.api.lang.types.JavaType;
+import dev.qilletni.api.lang.types.QilletniType;
+import dev.qilletni.api.lang.types.StringType;
+import dev.qilletni.api.lib.annotations.BeforeAnyInvocation;
+import dev.qilletni.api.lib.annotations.NativeOn;
+import dev.qilletni.lib.postgres.exceptions.DatabaseException;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

@@ -1,12 +1,12 @@
-package is.yarr.qilletni.lib.postgres;
+package dev.qilletni.lib.postgres;
 
-import is.yarr.qilletni.api.lang.types.AnyType;
-import is.yarr.qilletni.api.lang.types.BooleanType;
-import is.yarr.qilletni.api.lang.types.DoubleType;
-import is.yarr.qilletni.api.lang.types.IntType;
-import is.yarr.qilletni.api.lang.types.QilletniType;
-import is.yarr.qilletni.api.lang.types.StringType;
-import is.yarr.qilletni.lib.postgres.exceptions.InvalidPreparedStatementType;
+import dev.qilletni.api.lang.types.AnyType;
+import dev.qilletni.api.lang.types.BooleanType;
+import dev.qilletni.api.lang.types.DoubleType;
+import dev.qilletni.api.lang.types.IntType;
+import dev.qilletni.api.lang.types.QilletniType;
+import dev.qilletni.api.lang.types.StringType;
+import dev.qilletni.lib.postgres.exceptions.InvalidPreparedStatementType;
 
 public class DatabaseTypeUtility {
 

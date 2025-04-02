@@ -1,4 +1,4 @@
-package is.yarr.qilletni.lib.postgres;
+package dev.qilletni.lib.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

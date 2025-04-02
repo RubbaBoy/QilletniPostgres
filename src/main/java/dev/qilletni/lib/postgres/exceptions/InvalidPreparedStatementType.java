@@ -1,6 +1,6 @@
-package is.yarr.qilletni.lib.postgres.exceptions;
+package dev.qilletni.lib.postgres.exceptions;
 
-import is.yarr.qilletni.api.exceptions.QilletniException;
+import dev.qilletni.api.exceptions.QilletniException;
 
 public class InvalidPreparedStatementType extends QilletniException {
 

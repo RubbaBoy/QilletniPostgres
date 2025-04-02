@@ -1,11 +1,11 @@
-package is.yarr.qilletni.lib.postgres;
+package dev.qilletni.lib.postgres;
 
-import is.yarr.qilletni.api.lang.types.EntityType;
-import is.yarr.qilletni.api.lang.types.StringType;
-import is.yarr.qilletni.api.lang.types.conversion.TypeConverter;
-import is.yarr.qilletni.api.lang.types.entity.EntityInitializer;
-import is.yarr.qilletni.api.lang.types.list.ListInitializer;
-import is.yarr.qilletni.api.lib.annotations.NativeOn;
+import dev.qilletni.api.lang.types.EntityType;
+import dev.qilletni.api.lang.types.StringType;
+import dev.qilletni.api.lang.types.conversion.TypeConverter;
+import dev.qilletni.api.lang.types.entity.EntityInitializer;
+import dev.qilletni.api.lang.types.list.ListInitializer;
+import dev.qilletni.api.lib.annotations.NativeOn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
